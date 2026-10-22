@@ -78,6 +78,7 @@ function createElectronApi() {
     suspend: {
       getFeatureEnabled: vi.fn(async () => false),
       getRunningGames: vi.fn(async () => []),
+      suspendGame: vi.fn(async () => ({ success: true })),
       resumeGame: vi.fn(async () => ({ success: true })),
     },
     optimization: {

@@ -2,44 +2,54 @@
 
 ## What This Feature Does
 
-Controls whether suspend-resume behavior is enabled and how the suspend hotkey is configured.
+Turns Windows suspend/resume on, sets the global shortcut, and lists games Onyx tracked at launch so one of them can be paused or resumed from the tab.
 
 ## User-Facing Surfaces
 
 - `Onyx Settings` -> `Suspend/Resume` tab.
 - Enable toggle.
 - Shortcut capture and admin restart control.
+- Launch-tracked game list with Suspend and Resume buttons, polled every few seconds while the tab is open.
 
 ## Settings and Toggles
 
-- Enable suspend/resume -> `enableSuspendResume`
-- Suspend shortcut -> `suspendResumeShortcut`
-- Restart as admin action for shortcut registration scenarios.
+- Enable suspend/resume -> `enableSuspendFeature` (default off)
+- Suspend shortcut -> `suspendShortcut` (default `Ctrl+Shift+S`)
+- Restart as Administrator when a game returns access denied
+
+The shortcut suspends the foreground window, or resumes it if that window was the one Onyx paused. The list is the launch-tracked set, not the foreground window.
 
 ## Confirmed End-to-End Flows
 
-1. User enables suspend support or changes shortcut.
-2. Save persists preference changes.
-3. Runtime keyboard registration and suspend handlers use the saved values.
-4. Some paths may require elevated restart for global shortcut registration.
+1. User enables suspend support or changes the shortcut.
+2. Save persists `enableSuspendFeature` and `suspendShortcut`.
+3. After restart, the global shortcut is registered and the suspend handlers use those values.
+4. With the feature on, the tab lists tracked games and can suspend or resume one.
+5. An elevated restart is only needed when the game process itself requires it.
 
 ## Discovery and Data Sources
 
 - UI in [`SettingsSuspendTab.tsx`](../../../renderer/src/components/settings/SettingsSuspendTab.tsx), mounted by [`OnyxSettingsModal.tsx`](../../../renderer/src/components/OnyxSettingsModal.tsx).
-- Runtime consumers in suspend/resume services and app startup.
+- Tracked games come from `suspend.getRunningGames`.
+- Preferences are owned by [`UserPreferencesService.ts`](../../../main/UserPreferencesService.ts).
 
 ## Data Model and Persistence
 
 - Stored in user preferences.
-- Shortcut string is stored as the canonical accelerator text used by Electron/global shortcut logic.
+- Shortcut string is the Electron accelerator, for example `Ctrl+Shift+S`.
+- Suspended pid lists are not stored in preferences. See [Suspend and Resume](../suspend-and-resume.md).
 
 ## Failure Modes and Triage
 
 ### Symptom: Shortcut never triggers suspend
 
-- Confirm feature is enabled.
-- Confirm shortcut was saved in valid accelerator format.
-- Check whether restart or elevation is required.
+- Confirm the feature is enabled and Onyx was restarted after saving.
+- Confirm the shortcut is a valid accelerator.
+- The tab list can still suspend a tracked game when the shortcut is not registered.
+
+### Symptom: The list is empty while a game is running
+
+- The list is games tracked from a launch, not every foreground window. The shortcut still targets the foreground window.
 
 ## File Ownership Map
 
@@ -50,3 +60,4 @@ Controls whether suspend-resume behavior is enabled and how the suspend hotkey i
   - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
   - [main.ts](../../../main/main.ts)
   - [preload.ts](../../../main/preload.ts)
+  - [ipc/suspendHandlers.ts](../../../main/ipc/suspendHandlers.ts)

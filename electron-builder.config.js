@@ -76,6 +76,12 @@ const config = {
     '!dist-electron/**/*.tsbuildinfo',
     // Include all runtime dependencies; specific native modules are unpacked via asarUnpack
     'node_modules/**/*',
+    // koffi ships every OS. Onyx only suspends processes on Windows.
+    '!node_modules/koffi/build/koffi/linux*/**',
+    '!node_modules/koffi/build/koffi/darwin*/**',
+    '!node_modules/koffi/build/koffi/freebsd*/**',
+    '!node_modules/koffi/build/koffi/openbsd*/**',
+    '!node_modules/koffi/build/koffi/musl*/**',
     'package.json',
     'CHANGELOG.md'
   ],
@@ -97,6 +103,7 @@ const config = {
   asarUnpack: [
     'dist-electron/ImageOptimizerWorker.worker.js',
     'node_modules/sharp/**',
+    'node_modules/koffi/**',
     'node_modules/semver/**',
     'node_modules/detect-libc/**',
     'node_modules/@img/**'

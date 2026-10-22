@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Suspend and resume (still off until you enable it in Settings):
+  - The shortcut freezes the foreground window and every process it started, then resumes them on the next press. A store launch stub is no longer frozen in place of the game window.
+  - The pause uses a direct Windows call, minimizes the game first, and waits for that minimize to finish. Quitting Onyx resumes paused games, and the next launch resumes them after a crash when the process is still the same one.
+  - File Explorer and Windows system processes are left alone. The Suspend/Resume settings tab lists games tracked at launch and can pause or resume one.
+
 ## [0.17.0] - 2026-10-15
 
 - Add Games:

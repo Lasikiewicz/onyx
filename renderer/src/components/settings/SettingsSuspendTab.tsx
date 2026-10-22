@@ -1,5 +1,11 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { SettingsInput, SettingsSection, SettingsToggle } from './SettingsComponents';
+
+interface TrackedSuspendGame {
+  gameId: string;
+  title: string;
+  status: 'running' | 'suspended';
+}
 
 interface SettingsSuspendTabProps {
   enableSuspendFeature: boolean;
@@ -20,11 +26,60 @@ export const SettingsSuspendTab: React.FC<SettingsSuspendTabProps> = ({
   onSetSuspendShortcut,
   onBeginShortcutCapture,
 }) => {
+  const [trackedGames, setTrackedGames] = useState<TrackedSuspendGame[]>([]);
+  const [trackedGamesError, setTrackedGamesError] = useState<string | null>(null);
+  const [pendingGameId, setPendingGameId] = useState<string | null>(null);
+
+  const refreshTrackedGames = useCallback(async () => {
+    if (!enableSuspendFeature || !window.electronAPI?.suspend?.getRunningGames) {
+      setTrackedGames([]);
+      return;
+    }
+    try {
+      const games = await window.electronAPI.suspend.getRunningGames();
+      setTrackedGames(Array.isArray(games) ? games as TrackedSuspendGame[] : []);
+      setTrackedGamesError(null);
+    } catch (error) {
+      setTrackedGamesError(error instanceof Error ? error.message : 'Could not list tracked games');
+    }
+  }, [enableSuspendFeature]);
+
+  useEffect(() => {
+    if (!enableSuspendFeature) {
+      setTrackedGames([]);
+      return;
+    }
+    void refreshTrackedGames();
+    const interval = setInterval(() => {
+      void refreshTrackedGames();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [enableSuspendFeature, refreshTrackedGames]);
+
+  const toggleTrackedGame = async (game: TrackedSuspendGame) => {
+    if (pendingGameId) return;
+    setPendingGameId(game.gameId);
+    setTrackedGamesError(null);
+    try {
+      const result = game.status === 'suspended'
+        ? await window.electronAPI.suspend.resumeGame(game.gameId)
+        : await window.electronAPI.suspend.suspendGame(game.gameId);
+      if (!result.success) {
+        setTrackedGamesError(result.error || 'Suspend/resume failed');
+      }
+      await refreshTrackedGames();
+    } catch (error) {
+      setTrackedGamesError(error instanceof Error ? error.message : 'Suspend/resume failed');
+    } finally {
+      setPendingGameId(null);
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       <SettingsSection
         title="Suspend/Resume (Experimental)"
-        description="Windows-only process suspend controls adapted for Nyrna-style workflows. May require running Onyx as Administrator for some games."
+        description="Windows-only, using the same approach as Nyrna: the shortcut freezes the foreground window and every process it started, then resumes it on the next press. Quitting Onyx resumes paused games, including after a crash on the next launch. Some games need Onyx to run as Administrator."
       >
         <SettingsToggle
           label="Enable Suspend/Resume Feature"
@@ -34,7 +89,7 @@ export const SettingsSuspendTab: React.FC<SettingsSuspendTabProps> = ({
         />
         <SettingsInput
           label="Suspend Toggle Shortcut"
-          description="Global shortcut used to toggle between suspend/resume for tracked games."
+          description="Global shortcut. It suspends the foreground window, or resumes it if Onyx already suspended it."
           value={suspendShortcut}
           onChange={onSetSuspendShortcut}
           placeholder="Ctrl+Shift+S"
@@ -94,6 +149,38 @@ export const SettingsSuspendTab: React.FC<SettingsSuspendTabProps> = ({
               Restart as Administrator
             </button>
           </div>
+        </div>
+
+        <div className={`bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 ${!enableSuspendFeature ? 'opacity-50 pointer-events-none' : ''}`}>
+          <p className="text-gray-200 text-sm font-medium">Tracked games</p>
+          <p className="text-gray-400 text-xs mt-0.5">
+            These are games Onyx tracked at launch. The shortcut uses the foreground window instead, which is the process that actually owns the game window.
+          </p>
+          {trackedGames.length === 0 ? (
+            <p className="text-gray-500 text-xs mt-3">No tracked games are running.</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {trackedGames.map((game) => (
+                <li key={game.gameId} className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-gray-200 text-sm">{game.title}</p>
+                    <p className="text-gray-500 text-xs">{game.status === 'suspended' ? 'Suspended' : 'Running'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { void toggleTrackedGame(game); }}
+                    disabled={pendingGameId !== null}
+                    className="px-3 py-1.5 bg-slate-600 hover:bg-slate-500 disabled:opacity-50 text-white text-xs rounded transition-colors"
+                  >
+                    {pendingGameId === game.gameId ? 'Working…' : game.status === 'suspended' ? 'Resume' : 'Suspend'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {trackedGamesError && (
+            <p className="text-xs text-red-400 mt-2">{trackedGamesError}</p>
+          )}
         </div>
 
         <p className="pt-3 border-t border-gray-700/50 text-xs text-gray-400">

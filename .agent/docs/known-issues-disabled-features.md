@@ -13,12 +13,14 @@
 
 ### Suspend/Resume Feature (Nyrna-like)
 
-- Status: implemented but disabled.
+- Status: implemented, off by default (`enableSuspendFeature`). The settings tab, IPC, and shortcut registration are wired.
 - Related files:
   - `main/ProcessSuspendService.ts`
-  - `main/main.ts` (commented IPC wiring)
-  - `renderer/src/components/OnyxSettingsModal.tsx` (commented UI/settings)
-- Constraints: Windows-focused behavior, possible admin privilege requirement.
+  - `main/win32NativeSuspend.ts`
+  - `main/ipc/suspendHandlers.ts`
+  - `main/main.ts`
+  - `renderer/src/components/settings/SettingsSuspendTab.tsx`
+- Constraints: Windows-only. Some games need Onyx to run as Administrator. Suspending an anti-cheat-protected game can disconnect it. Not verified against a live game from this environment.
 
 ## Known Issues
 

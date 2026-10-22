@@ -298,6 +298,7 @@ let tray: Tray | null = null;
 let trayService: TrayService | null = null;
 let isAppQuitting = false;
 let isFlushingWindowStateBeforeQuit = false;
+let isResumingSuspendedBeforeQuit = false;
 let hasRunBeforeQuitCleanup = false;
 let flushWindowStateBeforeQuit: (() => Promise<void>) | null = null;
 let previousCrashSessionState: CrashSessionState | null = null;
@@ -471,12 +472,19 @@ async function initializeSuspendService(): Promise<void> {
   }
 
   if (!processSuspendService) {
-    const service = new ProcessSuspendService();
+    const service = new ProcessSuspendService(undefined, {
+      persistencePath: path.join(app.getPath('userData'), 'suspended-processes.json'),
+    });
     if (!service.isEnabled()) {
       processSuspendService = null;
       return;
     }
     processSuspendService = service;
+    try {
+      await processSuspendService.recoverOrphanedSuspensions();
+    } catch (error) {
+      console.error('[Suspend] Failed to resume processes left suspended by a previous session:', error);
+    }
     processSuspendService.startProcessMonitoring(5000);
     console.log('[Suspend] Process suspend service initialized');
   }
@@ -1754,6 +1762,23 @@ app.on('before-quit', (event) => {
     flushWindowStateBeforeQuit()
       .catch((error) => {
         console.error('[Shutdown] Failed to flush window state before quit:', error);
+      })
+      .finally(() => {
+        app.quit();
+      });
+    return;
+  }
+
+  if (!isResumingSuspendedBeforeQuit && processSuspendService?.hasSuspendedGames()) {
+    event.preventDefault();
+    isResumingSuspendedBeforeQuit = true;
+    const resumePromise = processSuspendService.shutdown();
+    const timeout = new Promise<void>((resolve) => {
+      setTimeout(resolve, 20000);
+    });
+    Promise.race([resumePromise, timeout])
+      .catch((error) => {
+        console.error('[Shutdown] Failed to resume suspended games:', error);
       })
       .finally(() => {
         app.quit();

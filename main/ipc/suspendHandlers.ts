@@ -1,7 +1,8 @@
-import { globalShortcut, ipcMain } from 'electron';
+import { BrowserWindow, globalShortcut, ipcMain, Notification } from 'electron';
 import { ProcessSuspendService } from '../ProcessSuspendService.js';
 import { UserPreferencesService } from '../UserPreferencesService.js';
 import { GameStore } from '../GameStore.js';
+import { pickShortcutTarget } from '../suspendTargets.js';
 
 let isSuspendShortcutRegistered = false;
 let currentSuspendShortcut: string | null = null;
@@ -52,6 +53,24 @@ export function registerSuspendHandlers(
             return;
         }
 
+        // Nyrna's hotkey toggles the foreground window. Do that before any process-list
+        // scan so the suspend is not delayed by a full CIM query. Fall back to a tracked
+        // library game only when no foreground process can be read.
+        const foreground = await processSuspendService.toggleForeground(() => {
+            for (const win of BrowserWindow.getAllWindows()) {
+                if (!win.isDestroyed()) win.minimize();
+            }
+        });
+        if (foreground.error !== 'Could not find a foreground window to suspend.') {
+            if (foreground.success) {
+                const verb = foreground.action === 'resume' ? 'Resumed' : 'Suspended';
+                notifySuspend(`${verb} ${foreground.title || 'the foreground window'}.`);
+            } else {
+                notifySuspend(foreground.error || 'Suspend/resume failed.');
+            }
+            return;
+        }
+
         let runningGames = await processSuspendService.getRunningGames();
         if (runningGames.length === 0) {
             try {
@@ -70,21 +89,38 @@ export function registerSuspendHandlers(
             }
         }
 
-        if (runningGames.length === 0) {
+        const target = pickShortcutTarget(runningGames);
+        if (!target) {
             console.log('[Suspend] Shortcut pressed but no running, discoverable games were found.');
+            notifySuspend('No foreground window or tracked game is available to suspend.');
             return;
         }
 
-        const suspendedGame = runningGames.find(game => game.status === 'suspended');
-        if (suspendedGame) {
-            await processSuspendService.resumeGame(suspendedGame.gameId);
+        const result = target.action === 'resume'
+            ? await processSuspendService.resumeGame(target.game.gameId)
+            : await processSuspendService.suspendGame(target.game.gameId);
+        if (result.success) {
+            const verb = target.action === 'resume' ? 'Resumed' : 'Suspended';
+            notifySuspend(`${verb} ${target.game.title}.`);
             return;
         }
+        notifySuspend(result.error || `Could not ${target.action} ${target.game.title}.`);
+    };
 
-        const runningGame = runningGames.find(game => game.status === 'running');
-        if (runningGame) {
-            await processSuspendService.suspendGame(runningGame.gameId);
+    const notifySuspend = (body: string) => {
+        try {
+            if (!Notification.isSupported()) return;
+            new Notification({ title: 'Onyx', body }).show();
+        } catch (error) {
+            console.error('[Suspend] Notification failed:', error);
         }
+    };
+
+    const normalizeGameId = (gameId: unknown): string | null => {
+        if (typeof gameId !== 'string') return null;
+        const trimmed = gameId.trim();
+        if (!trimmed || trimmed.length > 256) return null;
+        return trimmed;
     };
 
     const registerSuspendShortcut = async () => {
@@ -148,7 +184,7 @@ export function registerSuspendHandlers(
         return processSuspendService.getRunningGames();
     });
 
-    ipcMain.handle('suspend:suspendGame', async (_event, gameId: string) => {
+    ipcMain.handle('suspend:suspendGame', async (_event, gameId: unknown) => {
         const processSuspendService = getProcessSuspendService();
         if (!processSuspendService) {
             return { success: false, error: 'Suspend service unavailable' };
@@ -159,10 +195,15 @@ export function registerSuspendHandlers(
             return { success: false, error: 'Suspend feature is disabled' };
         }
 
-        return processSuspendService.suspendGame(gameId);
+        const normalizedGameId = normalizeGameId(gameId);
+        if (!normalizedGameId) {
+            return { success: false, error: 'Invalid game id' };
+        }
+
+        return processSuspendService.suspendGame(normalizedGameId);
     });
 
-    ipcMain.handle('suspend:resumeGame', async (_event, gameId: string) => {
+    ipcMain.handle('suspend:resumeGame', async (_event, gameId: unknown) => {
         const processSuspendService = getProcessSuspendService();
         if (!processSuspendService) {
             return { success: false, error: 'Suspend service unavailable' };
@@ -173,7 +214,12 @@ export function registerSuspendHandlers(
             return { success: false, error: 'Suspend feature is disabled' };
         }
 
-        return processSuspendService.resumeGame(gameId);
+        const normalizedGameId = normalizeGameId(gameId);
+        if (!normalizedGameId) {
+            return { success: false, error: 'Invalid game id' };
+        }
+
+        return processSuspendService.resumeGame(normalizedGameId);
     });
 
     ipcMain.handle('suspend:getFeatureEnabled', async () => {
