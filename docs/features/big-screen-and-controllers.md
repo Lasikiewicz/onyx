@@ -94,7 +94,7 @@ It does not create `apps.json` if the file is missing. It refuses files over 2 M
 
 - Focused input: Chromium's Gamepad API (`standard` mapping). Button 0 is A/Cross, 1 is B/Circle, 2 is X/Square, 3 is Y/Triangle, 4 and 5 are the shoulders, 8 is View/Create, 9 is Menu/Options, 12–15 are the D-pad, and 16 is Guide when the browser reports it. Left stick is axes 0 and 1. Non-standard D-pad axes 6 and 7 and hat axis 9 are also read. The stick deadzone is 0.55.
 - The Gamepad API does not deliver input while the Onyx window is unfocused. The global shortcut and the Guide watch cover that case.
-- Guide uses `XInputGetStateEx` (xinput1_4.dll ordinal 100) because the public `XInputGetState` does not report the Guide bit (`0x0400`). The poll runs every 200 ms for user indexes 0–3 and only on Windows. If the DLL or the ordinal cannot be loaded, the keyboard shortcut still works and the failure is logged.
+- Guide uses `XInputGetStateEx` (xinput1_4.dll ordinal 100) because the public `XInputGetState` does not report the Guide bit (`0x0400`). Koffi loads that ordinal as the number 100. A prototype string such as `#100` does not parse, and the Guide watch then stays off. The poll runs every 200 ms for user indexes 0–3 and only on Windows. If the DLL or the ordinal cannot be loaded, the keyboard shortcut still works and the failure is logged.
 - Displays come from Electron `screen` through [displayChoice.ts](../../main/displayChoice.ts).
 - Sunshine and Apollo are discovered only by the known `apps.json` paths above. Nothing is read from the network.
 

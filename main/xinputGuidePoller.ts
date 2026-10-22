@@ -1,19 +1,60 @@
 import { guideEdge } from './xinputGuide';
 
+interface XInputGamepad {
+  wButtons: number;
+  bLeftTrigger: number;
+  bRightTrigger: number;
+  sThumbLX: number;
+  sThumbLY: number;
+  sThumbRX: number;
+  sThumbRY: number;
+}
+
 interface XInputState {
   dwPacketNumber: number;
-  Gamepad: { wButtons: number };
+  Gamepad: XInputGamepad;
 }
 
 interface KoffiModule {
   struct(name: string, fields: Record<string, unknown>): unknown;
-  load(file: string): { func(definition: string): (index: number, state: XInputState) => number };
+  pointer(type: unknown): unknown;
+  out(type: unknown): unknown;
+  load(file: string): {
+    func(
+      convention: string,
+      name: number,
+      result: string,
+      args: unknown[],
+    ): (index: number, state: XInputState) => number;
+  };
 }
 
 const ERROR_SUCCESS = 0;
 
-function createReader(): ((index: number) => number | null) {
-  // Loaded only on Windows, and only when the wake setting is on. Tests never import this function.
+function emptyState(): XInputState {
+  return {
+    dwPacketNumber: 0,
+    Gamepad: {
+      wButtons: 0,
+      bLeftTrigger: 0,
+      bRightTrigger: 0,
+      sThumbLX: 0,
+      sThumbLY: 0,
+      sThumbRX: 0,
+      sThumbRY: 0,
+    },
+  };
+}
+
+let cachedRead: ((index: number) => number | null) | undefined;
+
+/**
+ * Loads XInputGetStateEx (xinput1_4.dll ordinal 100). Koffi accepts that ordinal as the
+ * number 100. A prototype string such as "#100" throws "Unexpected token '#'" and the
+ * Guide watch never starts. The public XInputGetState export does not report Guide.
+ */
+export function loadXInputGuideReader(): (index: number) => number | null {
+  if (cachedRead) return cachedRead;
   const koffi = require('koffi') as KoffiModule;
   const gamepad = koffi.struct('ONYX_XINPUT_GAMEPAD', {
     wButtons: 'uint16',
@@ -32,17 +73,17 @@ function createReader(): ((index: number) => number | null) {
     throw new Error('XInput state type failed to register');
   }
   const xinput = koffi.load('xinput1_4.dll');
-  // Ordinal 100 is XInputGetStateEx. The public XInputGetState export does not report Guide.
-  const getStateEx = xinput.func('uint32 __stdcall #100(uint32 dwUserIndex, _Out_ ONYX_XINPUT_STATE *pState)');
-  return (index: number) => {
-    const state: XInputState = {
-      dwPacketNumber: 0,
-      Gamepad: { wButtons: 0 },
-    };
+  const getStateEx = xinput.func('__stdcall', 100, 'uint32', [
+    'uint32',
+    koffi.out(koffi.pointer(stateType)),
+  ]);
+  cachedRead = (index: number) => {
+    const state = emptyState();
     const code = getStateEx(index, state);
     if (code !== ERROR_SUCCESS) return null;
     return state.Gamepad?.wButtons ?? 0;
   };
+  return cachedRead;
 }
 
 /**
@@ -54,7 +95,7 @@ export function startXInputGuideWatch(onGuide: () => void): { stop: () => void }
   if (process.platform !== 'win32') return null;
   let read: (index: number) => number | null;
   try {
-    read = createReader();
+    read = loadXInputGuideReader();
   } catch (error) {
     console.warn('[Gamepad] Xbox Guide button is unavailable:', error);
     return null;
