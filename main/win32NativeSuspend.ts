@@ -11,24 +11,55 @@ const PROCESS_SUSPEND_RESUME = 0x0800;
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const TH32CS_SNAPPROCESS = 0x00000002;
 
+let cachedPort: NativeSuspendPort | null | undefined;
+let processEntryType: unknown;
+
 /**
  * Direct ntdll/kernel32/user32 calls, matching Nyrna's Win32Process + Win32ProcessRepository.
  * PowerShell Add-Type remains the fallback when this port cannot be loaded.
  *
  * The port is only created on Windows. Loading koffi is deferred so unit tests
- * on other platforms never touch ntdll.
+ * on other platforms never touch ntdll. A second call returns the same port:
+ * koffi rejects a second struct registration with the same name, and that throw
+ * would disable the native path for the rest of the process.
  */
 export function loadWin32SuspendPort(): NativeSuspendPort | null {
-  if (process.platform !== 'win32') return null;
+  if (cachedPort !== undefined) return cachedPort;
+  if (process.platform !== 'win32') {
+    cachedPort = null;
+    return null;
+  }
   try {
     // koffi is N-API, so the same binary loads in Electron without a rebuild.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const koffi = require('koffi') as KoffiModule;
-    return createPort(koffi);
+    cachedPort = createPort(koffi);
+    return cachedPort;
   } catch (error) {
     console.warn('[Suspend] Direct ntdll suspend is unavailable; PowerShell will be used:', error);
+    cachedPort = null;
     return null;
   }
+}
+
+function processEntry32W(koffi: KoffiModule): unknown {
+  if (processEntryType) return processEntryType;
+  // Koffi resolves a prototype's type names when func() is called. Registering
+  // this afterwards throws "Unknown or invalid type name 'PROCESSENTRY32W'"
+  // and the catch above turns the whole port off.
+  processEntryType = koffi.struct('PROCESSENTRY32W', {
+    dwSize: 'uint32',
+    cntUsage: 'uint32',
+    th32ProcessID: 'uint32',
+    th32DefaultHeapID: 'uintptr_t',
+    th32ModuleID: 'uint32',
+    cntThreads: 'uint32',
+    th32ParentProcessID: 'uint32',
+    pcPriClassBase: 'int32',
+    dwFlags: 'uint32',
+    szExeFile: koffi.array('char16', 260),
+  });
+  return processEntryType;
 }
 
 interface KoffiModule {
@@ -62,6 +93,7 @@ function createPort(koffi: KoffiModule): NativeSuspendPort {
   const ntdll = koffi.load('ntdll.dll');
   const kernel32 = koffi.load('kernel32.dll');
   const user32 = koffi.load('user32.dll');
+  const PROCESSENTRY32W = processEntry32W(koffi);
 
   // intptr, not void*: koffi returns pointer-sized integers we can pass back.
   // A void* comes back as an external object, and Number(hwnd) is then NaN,
@@ -80,19 +112,6 @@ function createPort(koffi: KoffiModule): NativeSuspendPort {
   const GetForegroundWindow = user32.func('intptr __stdcall GetForegroundWindow()');
   const GetWindowThreadProcessId = user32.func('uint32 __stdcall GetWindowThreadProcessId(intptr hWnd, _Out_ uint32_t *lpdwProcessId)');
   const ShowWindow = user32.func('bool __stdcall ShowWindow(intptr hWnd, int nCmdShow)');
-
-  const PROCESSENTRY32W = koffi.struct('PROCESSENTRY32W', {
-    dwSize: 'uint32',
-    cntUsage: 'uint32',
-    th32ProcessID: 'uint32',
-    th32DefaultHeapID: 'uintptr_t',
-    th32ModuleID: 'uint32',
-    cntThreads: 'uint32',
-    th32ParentProcessID: 'uint32',
-    pcPriClassBase: 'int32',
-    dwFlags: 'uint32',
-    szExeFile: koffi.array('char16', 260),
-  });
 
   const act = (pid: number, invoke: (handle: number | bigint) => number, label: string): void => {
     // PROCESS_SUSPEND_RESUME only, same as Nyrna. A wider mask fails OpenProcess

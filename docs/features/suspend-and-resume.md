@@ -57,6 +57,7 @@ The Windows calls match [Nyrna](https://github.com/Merrit/nyrna): `NtSuspendProc
 
 - The shortcut suspends the foreground window. A launch stub is not the target unless it owns that window.
 - If the direct ntdll load fails, Onyx falls back to a PowerShell helper. That path is slower and can miss the minimize window.
+- The process-list structure has to be registered with koffi before the Toolhelp prototypes, and only once. Registering it afterwards (or a second time under the same name) throws, and the log says direct ntdll suspend is unavailable. Every suspend then uses the PowerShell helper.
 - Protected or anti-cheat processes can deny `OpenProcess`. Run Onyx as Administrator only when the error says access was denied. Suspending a protected game can still disconnect it.
 
 ### Symptom: A game stays frozen
