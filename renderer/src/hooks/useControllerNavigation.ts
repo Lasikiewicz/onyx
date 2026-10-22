@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Game } from '../types/game';
 import type { RightClickMenuEditorSection } from '../components/rightClickMenu/RightClickMenuHeader';
+import { pickSpatialIndex, type SpatialDirection } from '../utils/spatialNavigation';
 
 type ViewMode = 'grid' | 'list' | 'logo' | 'carousel' | 'coverflow' | 'card';
 type ControllerFocusMode = 'games' | 'actions' | 'top';
@@ -12,8 +13,12 @@ type ControllerAction =
   | 'primary'
   | 'back'
   | 'context'
+  | 'secondary'
   | 'share'
-  | 'options';
+  | 'options'
+  | 'shoulderLeft'
+  | 'shoulderRight'
+  | 'guide';
 
 interface UseControllerNavigationOptions {
   activeGameId: string | null;
@@ -31,6 +36,16 @@ interface UseControllerNavigationOptions {
   onStatus?: (message: string, type?: 'success' | 'error') => void;
   overlaysOpen: boolean;
   viewMode: ViewMode;
+  /** Big Screen launches the focused game on the primary button. Desktop keeps the two-step action row. */
+  activateOnPrimary?: boolean;
+  onActivateGame?: (game: Game) => void;
+  onBackFromGames?: () => void;
+  onGuide?: () => void;
+  onOptions?: () => void;
+  onSecondary?: () => void;
+  onShare?: () => void;
+  onShoulderLeft?: () => void;
+  onShoulderRight?: () => void;
 }
 
 const AXIS_DEADZONE = 0.55;
@@ -141,8 +156,12 @@ function getControllerActions(gamepad: Gamepad): Set<ControllerAction> {
   if (buttonPressed(0)) actions.add('primary');
   if (buttonPressed(1)) actions.add('back');
   if (buttonPressed(2)) actions.add('context');
+  if (buttonPressed(3)) actions.add('secondary');
+  if (buttonPressed(4)) actions.add('shoulderLeft');
+  if (buttonPressed(5)) actions.add('shoulderRight');
   if (buttonPressed(8)) actions.add('share');
   if (buttonPressed(9)) actions.add('options');
+  if (buttonPressed(16)) actions.add('guide');
 
   return actions;
 }
@@ -156,9 +175,38 @@ function getTopControls() {
   return Array.from(document.querySelectorAll<HTMLElement>('[data-controller-top-control]'));
 }
 
+const SPATIAL_SELECTOR = [
+  'button:not([disabled])',
+  'a[href]',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[data-spatial-item]:not([disabled])',
+].join(', ');
+
+function getActiveSpatialRoot(): HTMLElement | null {
+  const roots = document.querySelectorAll<HTMLElement>('[data-spatial-root][data-spatial-active="true"]');
+  return roots.item(roots.length - 1) ?? null;
+}
+
+function getSpatialTargets(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(SPATIAL_SELECTOR)).filter((element) => {
+    if (element.getAttribute('aria-hidden') === 'true') return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  });
+}
+
+const controllerFocusHolder: { current: HTMLElement | null } = { current: null };
+
 function focusElement(element: HTMLElement | null) {
   if (!element) return;
+  if (controllerFocusHolder.current && controllerFocusHolder.current !== element) {
+    controllerFocusHolder.current.classList.remove('controller-focus');
+  }
   element.focus({ preventScroll: true });
+  element.classList.add('controller-focus');
+  controllerFocusHolder.current = element;
   element.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
 }
 
@@ -186,6 +234,15 @@ export function useControllerNavigation({
   onStatus,
   overlaysOpen,
   viewMode,
+  activateOnPrimary = false,
+  onActivateGame,
+  onBackFromGames,
+  onGuide,
+  onOptions,
+  onSecondary,
+  onShare,
+  onShoulderLeft,
+  onShoulderRight,
 }: UseControllerNavigationOptions) {
   const modeRef = useRef<ControllerFocusMode>('games');
   const activeGameIdRef = useRef(activeGameId);
@@ -198,6 +255,20 @@ export function useControllerNavigation({
   const connectedGamepadKeyRef = useRef<string | null>(null);
   const inputDetectedRef = useRef(false);
   const lastRoutedActionRef = useRef<ControllerAction | null>(null);
+
+  useEffect(() => {
+    document.documentElement.dataset.gamepadNavigation = enabled ? 'true' : 'false';
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const clearFocusRing = () => {
+      controllerFocusHolder.current?.classList.remove('controller-focus');
+      controllerFocusHolder.current = null;
+    };
+    window.addEventListener('pointerdown', clearFocusRing);
+    return () => window.removeEventListener('pointerdown', clearFocusRing);
+  }, [enabled]);
 
   useEffect(() => {
     activeGameIdRef.current = activeGameId;
@@ -334,8 +405,32 @@ export function useControllerNavigation({
       trigger?.focus({ preventScroll: true });
     };
 
+    const moveSpatial = (direction: SpatialDirection) => {
+      const root = getActiveSpatialRoot();
+      if (!root) return;
+      const targets = getSpatialTargets(root);
+      if (targets.length === 0) return;
+      const currentIndex = targets.findIndex((element) => element === document.activeElement);
+      if (currentIndex < 0) {
+        focusElement(targets[0] ?? null);
+        return;
+      }
+      const rects = targets.map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+      });
+      const nextIndex = pickSpatialIndex(currentIndex, rects, direction);
+      if (nextIndex == null) return;
+      focusElement(targets[nextIndex] ?? null);
+    };
+
     const handleAction = (action: ControllerAction) => {
       lastRoutedActionRef.current = action;
+
+      if (action === 'guide') {
+        onGuide?.();
+        return;
+      }
 
       if (action === 'back') {
         if (isGameContextMenuOpen) {
@@ -354,6 +449,37 @@ export function useControllerNavigation({
           modeRef.current = 'games';
           return;
         }
+      }
+
+      if (action === 'options' && onOptions) {
+        onOptions();
+        return;
+      }
+
+      const spatialRoot = getActiveSpatialRoot();
+      if (spatialRoot) {
+        if (action === 'left' || action === 'right' || action === 'up' || action === 'down') {
+          moveSpatial(action);
+          return;
+        }
+        if (action === 'primary') {
+          const activeElement = document.activeElement;
+          if (activeElement instanceof HTMLElement && spatialRoot.contains(activeElement)) {
+            activeElement.click();
+          } else {
+            focusElement(getSpatialTargets(spatialRoot)[0] ?? null);
+          }
+          return;
+        }
+        if (action === 'back') {
+          const dismiss = spatialRoot.querySelector<HTMLElement>('[data-spatial-dismiss]');
+          if (dismiss) {
+            dismiss.click();
+            modeRef.current = 'games';
+          }
+          return;
+        }
+        return;
       }
 
       if (action === 'options') {
@@ -380,7 +506,10 @@ export function useControllerNavigation({
         if (action === 'left') moveTopFocus(-1);
         else if (action === 'right') moveTopFocus(1);
         else if (action === 'primary') getTopControls()[topIndexRef.current]?.click();
-        else if (action === 'share') focusTopControl('search');
+        else if (action === 'share') {
+          onShare?.();
+          focusTopControl('search');
+        }
         else if (action === 'back') {
           modeRef.current = 'games';
           focusElement(findGameCard(activeGameIdRef.current));
@@ -392,10 +521,24 @@ export function useControllerNavigation({
       else if (action === 'right') moveGameSelection(1);
       else if (action === 'up') moveGameSelection(viewMode === 'list' ? -1 : -getGridColumnCount());
       else if (action === 'down') moveGameSelection(viewMode === 'list' ? 1 : getGridColumnCount());
-      else if (action === 'primary') enterActionMode();
+      else if (action === 'primary') {
+        if (activateOnPrimary && onActivateGame) {
+          const game = gamesRef.current.find((entry) => entry.id === activeGameIdRef.current) ?? gamesRef.current[0];
+          if (game) onActivateGame(game);
+        } else {
+          enterActionMode();
+        }
+      } else if (action === 'secondary') onSecondary?.();
+      else if (action === 'shoulderLeft') onShoulderLeft?.();
+      else if (action === 'shoulderRight') onShoulderRight?.();
       else if (action === 'context') openSelectedGameContextMenu();
-      else if (action === 'back') openShellContextMenu();
-      else if (action === 'share') focusTopControl('search');
+      else if (action === 'back') {
+        if (onBackFromGames) onBackFromGames();
+        else openShellContextMenu();
+      } else if (action === 'share') {
+        onShare?.();
+        focusTopControl('search');
+      }
     };
 
     const loop = (time: number) => {
@@ -472,11 +615,13 @@ export function useControllerNavigation({
     };
 
     frameId = window.requestAnimationFrame(loop);
+    const pressed = pressedRef.current;
+    const repeatedAt = repeatedAtRef.current;
 
     return () => {
       window.cancelAnimationFrame(frameId);
-      pressedRef.current.clear();
-      repeatedAtRef.current.clear();
+      pressed.clear();
+      repeatedAt.clear();
     };
   }, [
     enabled,
@@ -491,5 +636,14 @@ export function useControllerNavigation({
     onStatus,
     overlaysOpen,
     viewMode,
+    activateOnPrimary,
+    onActivateGame,
+    onBackFromGames,
+    onGuide,
+    onOptions,
+    onSecondary,
+    onShare,
+    onShoulderLeft,
+    onShoulderRight,
   ]);
 }

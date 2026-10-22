@@ -34,7 +34,13 @@ if (!gotTheLock) {
     // Someone tried to run a second instance, we should focus our window.
     if (win) {
       if (win.isMinimized()) win.restore();
+      win.show();
       win.focus();
+      const secondInstanceFlags = parseLaunchFlags(commandLine);
+      if (secondInstanceFlags.bigScreen) {
+        enterBigScreenWindow(win, secondInstanceFlags.bigScreenDisplay ?? 'current');
+        win.webContents.send('big-screen:requested');
+      }
     }
 
     // Check if a game launch was requested from jump list
@@ -172,6 +178,12 @@ import { registerMetadataIPCHandlers } from './ipc/metadataHandlers.js';
 import { registerAppIPCHandlers } from './ipc/appHandlers.js';
 import { registerScanningHandlers, clearRunningGames } from './ipc/scanningHandlers.js';
 import { registerSuspendHandlers } from './ipc/suspendHandlers.js';
+import { registerBigScreenHandlers } from './ipc/bigScreenHandlers.js';
+import { parseLaunchFlags } from './launchFlags.js';
+import { normalizeDisplayChoice } from './displayChoice.js';
+import { enterBigScreenWindow } from './bigScreenWindow.js';
+import { isBigScreenSessionActive, getBigScreenSession } from './bigScreenSession.js';
+import { stopBringToFront } from './bringToFrontService.js';
 import { registerLauncherIPCHandlers } from './ipc/launcherHandlers.js';
 import { TrayService } from './ui/tray.js';
 import { withTimeout } from './RetryUtils.js';
@@ -664,6 +676,10 @@ registerAppIPCHandlers(
 registerLauncherIPCHandlers(launcherService, launcherDetectionService, trayService, gameStore, () => processSuspendService);
 const { performBackgroundScan, startBackgroundScan, stopBackgroundScan } = registerScanningHandlers({ get current() { return win; } }, gameStore, appConfigService, importService, metadataFetcher, imageCacheService, userPreferencesService);
 const { unregisterSuspendShortcut, syncSuspendShortcutState } = registerSuspendHandlers(() => processSuspendService, userPreferencesService, gameStore);
+const { syncBringToFront } = registerBigScreenHandlers({
+  getWindow: () => win,
+  userPreferencesService,
+});
 
 // Create application menu
 function createMenu() {
@@ -1043,8 +1059,10 @@ async function createWindow() {
 
   // Determine the initial window state (respecting preferences, CLI flags and login settings)
   const loginSettings = app.getLoginItemSettings();
+  const launchFlags = parseLaunchFlags(process.argv);
+  const wantsBigScreenAtLaunch = launchFlags.bigScreen || prefs?.startInBigScreen === true;
   const startupWindowMode = resolveStartupWindowMode(prefs, process.argv, loginSettings);
-  const shouldStartHidden = startupWindowMode === 'tray';
+  const shouldStartHidden = startupWindowMode === 'tray' && !wantsBigScreenAtLaunch;
 
   if (!shouldStartHidden) {
     // Restore maximized state if previously maximized (for non-first-launch)
@@ -1052,13 +1070,14 @@ async function createWindow() {
       win.maximize();
     }
 
-    // Restore fullscreen state if previously in fullscreen (for non-first-launch)
-    if (!isFirstLaunch && windowState?.isFullscreen) {
+    // Restore fullscreen state if previously in fullscreen (for non-first-launch).
+    // Big Screen applies its own display and fullscreen once the page has loaded.
+    if (!wantsBigScreenAtLaunch && !isFirstLaunch && windowState?.isFullscreen) {
       win.setFullScreen(true);
     }
 
     // Apply startInFullscreen preference if enabled
-    if (prefs?.startInFullscreen && !win.isFullScreen()) {
+    if (!wantsBigScreenAtLaunch && prefs?.startInFullscreen && !win.isFullScreen()) {
       win.setFullScreen(true);
     }
   } else {
@@ -1148,7 +1167,8 @@ async function createWindow() {
     try {
       const bounds = targetWindow.getBounds();
       const isMaximized = targetWindow.isMaximized();
-      const isFullscreen = targetWindow.isFullScreen();
+      const session = getBigScreenSession();
+      const isFullscreen = session.active ? session.wasFullscreen : targetWindow.isFullScreen();
 
       await userPreferencesService.savePreferences({
         windowState: {
@@ -1312,11 +1332,14 @@ async function createWindow() {
     // stays disabled for the rest of the session.
     clearRunningGames();
 
-    if (startupWindowMode === 'tray') {
+    if (startupWindowMode === 'tray' && !wantsBigScreenAtLaunch) {
       console.log('[Startup] Starting in tray mode; keeping main window hidden.');
     } else {
       win?.show();
-      if (startupWindowMode === 'minimized') {
+      if (wantsBigScreenAtLaunch && win) {
+        const displayChoice = launchFlags.bigScreenDisplay ?? normalizeDisplayChoice(prefs?.bigScreenDisplay);
+        enterBigScreenWindow(win, displayChoice);
+      } else if (startupWindowMode === 'minimized') {
         console.log('[Startup] Starting minimized.');
         win?.minimize();
       }
@@ -1379,6 +1402,9 @@ async function createWindow() {
             // Notify renderer of fullscreen state change
             win.webContents.send('fullscreen-changed', !isFullscreen);
           }
+        } else if (input.key === 'Escape' && win && win.isFullScreen() && isBigScreenSessionActive()) {
+          event.preventDefault();
+          win.webContents.send('big-screen:escape');
         } else if (input.key === 'Escape' && win && win.isFullScreen()) {
           win.setFullScreen(false);
           // Notify renderer of fullscreen state change
@@ -1679,6 +1705,12 @@ app.whenReady().then(async () => {
 
   await createWindow();
 
+  try {
+    await syncBringToFront();
+  } catch (error) {
+    console.error('[Startup] Bring-to-front shortcut failed:', error);
+  }
+
   // Initialize background scan interval if enabled
   const backgroundScanEnabled = await appConfigService.getBackgroundScanEnabled();
   if (backgroundScanEnabled) {
@@ -1805,6 +1837,7 @@ app.on('before-quit', (event) => {
 
 app.on('will-quit', () => {
   unregisterSuspendShortcut();
+  stopBringToFront();
   processSuspendService?.cleanup();
   stopBackgroundScan();
   gameStore.flushSync();

@@ -36,7 +36,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 - This feature owns the app's complete settings surface.
 - Detailed toggle inventories are maintained in the tab-specific runbooks.
 - Shared persistence is centered on [UserPreferencesService](../../main/UserPreferencesService.ts), with some tabs also calling dedicated IPC or credential storage APIs.
-- Controller navigation settings (`enableGamepadSupport`, `gamepadNavigationSpeed`, `gamepadButtonLayout`) default in [UserPreferencesService](../../main/UserPreferencesService.ts), but the General tab currently marks them coming soon and [App.tsx](../../renderer/src/App.tsx) keeps [useControllerNavigation.ts](../../renderer/src/hooks/useControllerNavigation.ts) disabled.
+- Controller and Big Screen settings (`enableGamepadSupport`, `gamepadNavigationSpeed`, `gamepadButtonLayout`, `enableBringToFrontShortcut`, `bringToFrontShortcut`, `enableGuideButtonWake`, `startInBigScreen`, `bigScreenDisplay`) default in [UserPreferencesService](../../main/UserPreferencesService.ts). Behavior is documented in [Big Screen and controllers](./big-screen-and-controllers.md) and [Settings General](./settings/general.md).
 - Top-bar layout settings (`topBarPositions`) default in [UserPreferencesService](../../main/UserPreferencesService.ts), are loaded by [useAppShellViewState.ts](../../renderer/src/hooks/useAppShellViewState.ts), and are edited from the fixed top bar's right-click layout menu in [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx) / [TopBarContextMenu.tsx](../../renderer/src/components/TopBarContextMenu.tsx).
 - Tray settings (`showSystemTrayIcon`, `minimizeToTray`, `closeToTray`) are stored as General preferences and consumed by [main.ts](../../main/main.ts), [appHandlers.ts](../../main/ipc/appHandlers.ts), and [tray.ts](../../main/ui/tray.ts) so minimize, close, and tray-restore behavior stay aligned.
 
@@ -63,7 +63,7 @@ This parent file is the settings overview and routing document. Detailed behavio
 
 - Most settings persist in the user preferences store ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)).
 - The top-bar layout preference stores individual positions for `searchBar`, `sortBy`, `launcher`, `categories`, and `pinnedCategories`, including the `hidden` state for each item.
-- Gamepad settings are ordinary user preferences, not a separate controller profile store; the renderer keeps the stored values for future support while the controller surface is marked coming soon.
+- Gamepad and Big Screen settings are ordinary user preferences, not a separate profile store. [App.tsx](../../renderer/src/App.tsx) applies `enableGamepadSupport` after the startup preference load.
 - Some operational values use dedicated APIs or related stores:
   - background scanning configuration
   - API credentials ([APICredentialsService.ts](../../main/APICredentialsService.ts))

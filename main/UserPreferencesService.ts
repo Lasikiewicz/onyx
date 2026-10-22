@@ -164,6 +164,13 @@ export interface UserPreferences {
   enableGamepadSupport?: boolean;
   gamepadNavigationSpeed?: number;
   gamepadButtonLayout?: 'xbox' | 'playstation';
+  /** Keyboard hotkey that raises Onyx when another window is focused. Default Ctrl+Shift+G. */
+  enableBringToFrontShortcut?: boolean;
+  bringToFrontShortcut?: string;
+  /** Windows-only Xbox Guide button. Separate from the keyboard shortcut and from Suspend/Resume. */
+  enableGuideButtonWake?: boolean;
+  startInBigScreen?: boolean;
+  bigScreenDisplay?: 'current' | 'primary' | number;
   // Top bar element positions
   topBarPositions?: {
     searchBar?: 'left' | 'middle' | 'right' | 'hidden';
@@ -428,6 +435,11 @@ export class UserPreferencesService {
       enableGamepadSupport: true,
       gamepadNavigationSpeed: 180,
       gamepadButtonLayout: 'playstation',
+      enableBringToFrontShortcut: true,
+      bringToFrontShortcut: 'Ctrl+Shift+G',
+      enableGuideButtonWake: true,
+      startInBigScreen: false,
+      bigScreenDisplay: 'current',
       detailsPanelOpacity: 80,
       isFirstLaunch: true,
       enableHardwareAcceleration: true,

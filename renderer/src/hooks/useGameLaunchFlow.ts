@@ -5,9 +5,11 @@ interface UseGameLaunchFlowOptions {
   confirmGameLaunch: boolean;
   /** Shows a user-facing message (the app toast). Failures and blocked launches go through here, not alert(). */
   notify?: (message: string, type?: 'success' | 'error') => void;
+  /** When Big Screen launched the game, minimize even if the desktop preference is off, then come back. */
+  returnToBigScreen?: boolean;
 }
 
-export function useGameLaunchFlow({ confirmGameLaunch, notify }: UseGameLaunchFlowOptions) {
+export function useGameLaunchFlow({ confirmGameLaunch, notify, returnToBigScreen = false }: UseGameLaunchFlowOptions) {
   const [launchingGameId, setLaunchingGameId] = useState<string | null>(null);
   const [runningGames, setRunningGames] = useState<Set<string>>(new Set());
   // Refs mirror the state so launchGame, which is memoised, can check them without going stale.
@@ -18,6 +20,11 @@ export function useGameLaunchFlow({ confirmGameLaunch, notify }: UseGameLaunchFl
   }, [runningGames]);
   const [launchConfirmation, setLaunchConfirmation] = useState<{ game: Game } | null>(null);
   const minimizedForTrackedLaunchesRef = useRef<Set<string>>(new Set());
+  const bigScreenLaunchesRef = useRef<Set<string>>(new Set());
+  const returnToBigScreenRef = useRef(returnToBigScreen);
+  useEffect(() => {
+    returnToBigScreenRef.current = returnToBigScreen;
+  }, [returnToBigScreen]);
   // Every polling interval started by this hook, so unmount can stop them. Previously each
   // interval was only cleared from inside its own callback, so a monitor whose process
   // stayed alive kept polling after the component was gone.
@@ -40,6 +47,13 @@ export function useGameLaunchFlow({ confirmGameLaunch, notify }: UseGameLaunchFl
     const prefs = await window.electronAPI.getPreferences();
     const shouldRestore = minimizedForTrackedLaunchesRef.current.has(gameId);
     minimizedForTrackedLaunchesRef.current.delete(gameId);
+    const returnToBigScreen = bigScreenLaunchesRef.current.has(gameId);
+    bigScreenLaunchesRef.current.delete(gameId);
+
+    if (returnToBigScreen && window.electronAPI.bigScreen?.returnFromGame) {
+      await window.electronAPI.bigScreen.returnFromGame();
+      return;
+    }
 
     if (prefs.restoreAfterLaunch && shouldRestore) {
       await window.electronAPI.restoreWindow();
@@ -143,7 +157,8 @@ export function useGameLaunchFlow({ confirmGameLaunch, notify }: UseGameLaunchFl
       }
 
       const prefs = await window.electronAPI.getPreferences();
-      if (prefs.minimizeOnGameLaunch) {
+      const leaveForBigScreen = returnToBigScreenRef.current;
+      if (prefs.minimizeOnGameLaunch || leaveForBigScreen) {
         await window.electronAPI.minimizeWindow();
       }
 
@@ -160,8 +175,11 @@ export function useGameLaunchFlow({ confirmGameLaunch, notify }: UseGameLaunchFl
         setRunningGames((prev) => new Set(prev).add(game.id));
 
         if (result.pid) {
-          if (prefs.minimizeOnGameLaunch) {
+          if (prefs.minimizeOnGameLaunch || leaveForBigScreen) {
             minimizedForTrackedLaunchesRef.current.add(game.id);
+          }
+          if (leaveForBigScreen) {
+            bigScreenLaunchesRef.current.add(game.id);
           }
           void monitorGameProcess(game.id, result.pid);
         } else {

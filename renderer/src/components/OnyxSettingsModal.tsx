@@ -22,6 +22,7 @@ export interface OnyxSettingsModalProps {
   // Allow both old and new tab names for compatibility during migration
   initialTab?: 'general' | 'apis' | 'apps' | 'reset' | 'about' | 'appearance' | 'integrations' | 'launchers' | 'library' | 'links' | 'advanced' | 'suspend' | 'animations';
   onShowImportModal?: (games: Array<any>, appType?: 'steam' | 'xbox' | 'other') => void;
+  onEnterBigScreen?: (display: 'current' | 'primary' | number) => void;
 }
 
 export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
@@ -30,6 +31,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
   onSave,
   initialTab = 'general',
   onShowImportModal,
+  onEnterBigScreen,
 }) => {
   const [linkVisibleTypes, setLinkVisibleTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
@@ -210,6 +212,7 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={(id) => setActiveTab(id as SettingsModalTab)}
+        onClose={onClose}
         appVersion={appVersion}
       />
 
@@ -223,10 +226,21 @@ export const OnyxSettingsModal: React.FC<OnyxSettingsModalProps> = ({
               enableGamepadSupport={settings.enableGamepadSupport}
               gamepadButtonLayout={settings.gamepadButtonLayout}
               gamepadNavigationSpeed={settings.gamepadNavigationSpeed}
+              enableBringToFrontShortcut={settings.enableBringToFrontShortcut}
+              bringToFrontShortcut={settings.bringToFrontShortcut}
+              enableGuideButtonWake={settings.enableGuideButtonWake}
+              startInBigScreen={settings.startInBigScreen}
+              bigScreenDisplay={settings.bigScreenDisplay}
               minimizeOnGameLaunch={settings.minimizeOnGameLaunch}
               minimizeToTray={settings.minimizeToTray}
               onGamepadButtonLayoutChange={(layout) => setSettings((prev) => ({ ...prev, gamepadButtonLayout: layout }))}
               onGamepadNavigationSpeedChange={(speed) => setSettings((prev) => ({ ...prev, gamepadNavigationSpeed: speed }))}
+              onBringToFrontShortcutChange={(shortcut) => setSettings((prev) => ({ ...prev, bringToFrontShortcut: shortcut }))}
+              onBigScreenDisplayChange={(display) => setSettings((prev) => ({ ...prev, bigScreenDisplay: display }))}
+              onEnterBigScreen={(display) => {
+                onClose();
+                onEnterBigScreen?.(display);
+              }}
               onToggle={handleToggle}
               restoreAfterLaunch={settings.restoreAfterLaunch}
               showSystemTrayIcon={settings.showSystemTrayIcon}

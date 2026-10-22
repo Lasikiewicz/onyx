@@ -52,7 +52,9 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
       
       {/* Modal - Centered */}
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div 
+        <div
+          data-spatial-root=""
+          data-spatial-active="true"
           className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-md"
           onClick={(e) => e.stopPropagation()}
         >
@@ -97,12 +99,15 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             {hasTwoOptions ? (
               <>
                 <button
+                  type="button"
+                  data-spatial-dismiss=""
                   onClick={onCancel}
                   className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
                 >
                   {cancelText}
                 </button>
                 <button
+                  type="button"
                   onClick={onSecondaryAction}
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-medium rounded-lg transition-colors"
                 >
@@ -118,12 +123,15 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             ) : (
               <>
                 <button
+                  type="button"
+                  data-spatial-dismiss=""
                   onClick={onCancel}
                   className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
                 >
                   {cancelText}
                 </button>
                 <button
+                  type="button"
                   onClick={onConfirm}
                   className={`px-4 py-2 ${confirmButtonClass} font-medium rounded-lg transition-colors`}
                 >

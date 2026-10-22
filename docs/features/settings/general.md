@@ -2,7 +2,7 @@
 
 ## What This Feature Does
 
-Controls app startup, tray integration, the coming-soon controller navigation surface, hardware acceleration, and basic window behavior. Part of [Settings and preferences](../settings-and-preferences.md).
+Controls app startup, tray integration, controller navigation, Big Screen, hardware acceleration, and basic window behavior. Part of [Settings and preferences](../settings-and-preferences.md). The TV layout and the Moonlight host entry are documented in [Big Screen and controllers](../big-screen-and-controllers.md).
 
 ## Related Documentation
 
@@ -12,9 +12,11 @@ Controls app startup, tray integration, the coming-soon controller navigation su
 ## User-Facing Surfaces
 
 - `Onyx Settings` -> `General` tab.
-- Two visible sections:
+- Visible sections:
   - `System`
   - `Controller`
+  - `Big Screen`
+  - `Moonlight, Sunshine, and Apollo`
   - `Window Behavior`
 
 ## Settings and Toggles
@@ -26,9 +28,15 @@ Controls app startup, tray integration, the coming-soon controller navigation su
 - `Close to Tray` -> `closeToTray`
 - `Start Closed to Tray` -> `startClosedToTray`
 - `Hardware Acceleration` -> `enableHardwareAcceleration`
-- `Controller Navigation` -> `enableGamepadSupport` (currently disabled and marked coming soon)
-- `Button Labels` -> `gamepadButtonLayout` (currently disabled and marked coming soon)
-- `Navigation Repeat` -> `gamepadNavigationSpeed` (currently disabled and marked coming soon)
+- `Controller Navigation` -> `enableGamepadSupport` (default on, after preferences load)
+- `Button Labels` -> `gamepadButtonLayout`
+- `Navigation Repeat` -> `gamepadNavigationSpeed`
+- `Bring Onyx to Front` -> `enableBringToFrontShortcut` (default on, shortcut `Ctrl+Shift+G`)
+- `Xbox Guide Button` -> `enableGuideButtonWake` (Windows only)
+- `Start in Big Screen` -> `startInBigScreen` (default off)
+- `Display` -> `bigScreenDisplay` (`current`, `primary`, or a display id)
+- Enter Big Screen closes settings and opens the TV layout on the chosen display.
+- The Moonlight section detects Sunshine and Apollo `apps.json` files and adds or removes "Onyx Big Screen" only after confirmation. A development build shows the command and does not write.
 - `Minimize on Game Launch` -> `minimizeOnGameLaunch`
 - `Restore Window on Game Exit` -> `restoreAfterLaunch`
 - `Confirm Game Launch` -> `confirmGameLaunch`
@@ -42,14 +50,14 @@ Controls app startup, tray integration, the coming-soon controller navigation su
    - `Start Minimized` launches the main window and minimizes it to the taskbar.
    - `Start Closed to Tray` keeps the main window hidden and relies on the tray icon.
 5. App reloads preferences after save and updates active runtime state where supported, including the main-process tray flags used by minimize and close actions.
-6. Controller settings remain visible for future support, but the General tab marks them coming soon and the app shell keeps [useControllerNavigation.ts](../../../renderer/src/hooks/useControllerNavigation.ts) gated off.
+6. Saving controller or Big Screen settings writes the preferences and calls `bigScreen.syncWake()` so the bring-to-front shortcut is registered or cleared immediately. If that shortcut matches an enabled Suspend/Resume shortcut, the save still completes and an alert explains why the shortcut was not registered.
 
 ## Discovery and Data Sources
 
 - UI lives in [SettingsGeneralTab.tsx](../../../renderer/src/components/settings/SettingsGeneralTab.tsx), mounted by [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx).
 - Persistence uses [UserPreferencesService.ts](../../../main/UserPreferencesService.ts) defaults and save flow.
 - Runtime consumers include tray/window lifecycle and launch behavior in [main.ts](../../../main/main.ts), [appHandlers.ts](../../../main/ipc/appHandlers.ts), [tray.ts](../../../main/ui/tray.ts), and [App.tsx](../../../renderer/src/App.tsx).
-- Controller navigation is implemented by [useControllerNavigation.ts](../../../renderer/src/hooks/useControllerNavigation.ts), but [App.tsx](../../../renderer/src/App.tsx) currently disables the bridge while the settings controls are marked coming soon.
+- Controller navigation is implemented by [useControllerNavigation.ts](../../../renderer/src/hooks/useControllerNavigation.ts) and enabled from [App.tsx](../../../renderer/src/App.tsx) when `enableGamepadSupport` is on. Big Screen behavior is in [useBigScreenMode.ts](../../../renderer/src/hooks/useBigScreenMode.ts). The host helper is [SettingsSunshineSection.tsx](../../../renderer/src/components/settings/SettingsSunshineSection.tsx).
 
 ## Data Model and Persistence
 
@@ -93,8 +101,8 @@ Controls app startup, tray integration, the coming-soon controller navigation su
 
 ### Symptom: Controller input does nothing
 
-- Expected while the Controller section is marked coming soon.
-- [App.tsx](../../../renderer/src/App.tsx) keeps controller polling disabled until controller input support is finalized.
+- Confirm Controller Navigation is on and settings were saved. Polling starts after preferences load.
+- Carousel and cover flow on the desktop do not take controller movement. Big Screen does. See [Big Screen and controllers](../big-screen-and-controllers.md).
 
 ## File Ownership Map
 
@@ -103,6 +111,8 @@ Controls app startup, tray integration, the coming-soon controller navigation su
   - [OnyxSettingsModal.tsx](../../../renderer/src/components/OnyxSettingsModal.tsx)
   - [App.tsx](../../../renderer/src/App.tsx)
   - [useControllerNavigation.ts](../../../renderer/src/hooks/useControllerNavigation.ts)
+  - [SettingsSunshineSection.tsx](../../../renderer/src/components/settings/SettingsSunshineSection.tsx)
+  - [useBigScreenMode.ts](../../../renderer/src/hooks/useBigScreenMode.ts)
 - **Main process**
   - [UserPreferencesService.ts](../../../main/UserPreferencesService.ts)
   - [ipc/appHandlers.ts](../../../main/ipc/appHandlers.ts)

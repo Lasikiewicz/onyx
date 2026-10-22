@@ -143,6 +143,8 @@ export const GameContextMenu: React.FC<GameContextMenuProps> = ({
   return (
     <div
       ref={menuRef}
+      data-spatial-root=""
+      data-spatial-active="true"
       className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] min-w-[160px] py-1"
       style={{ left: `${x}px`, top: `${y}px` }}
     >

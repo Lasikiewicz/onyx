@@ -264,6 +264,11 @@ export interface UserPreferences {
   enableGamepadSupport?: boolean;
   gamepadNavigationSpeed?: number;
   gamepadButtonLayout?: 'xbox' | 'playstation';
+  enableBringToFrontShortcut?: boolean;
+  bringToFrontShortcut?: string;
+  enableGuideButtonWake?: boolean;
+  startInBigScreen?: boolean;
+  bigScreenDisplay?: 'current' | 'primary' | number;
   // Button colors per view
   rightPanelButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };
   carouselButtonColors?: { playColor?: string; editColor?: string; modManagerColor?: string };

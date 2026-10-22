@@ -13,6 +13,7 @@ interface SettingsSidebarProps {
     tabs: SettingsTab[];
     activeTab: string;
     onTabChange: (id: string) => void;
+    onClose?: () => void;
     appVersion?: string;
 }
 
@@ -20,6 +21,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
     tabs,
     activeTab,
     onTabChange,
+    onClose,
     appVersion = '0.0.0'
 }) => {
     return (
@@ -67,6 +69,18 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                     );
                 })}
             </nav>
+            {onClose && (
+                <div className="p-3 border-t border-gray-800">
+                    <button
+                        type="button"
+                        data-spatial-dismiss=""
+                        onClick={onClose}
+                        className="w-full rounded-lg px-3 py-2.5 text-sm font-medium text-gray-200 hover:bg-gray-800"
+                    >
+                        Close
+                    </button>
+                </div>
+            )}
 
 
         </div>

@@ -246,6 +246,38 @@ describe('useControllerNavigation', () => {
     expect(onCloseShellContextMenu).toHaveBeenCalled();
   });
 
+  it('moves focus inside the topmost spatial overlay', () => {
+    render(<Harness />);
+    const root = document.createElement('div');
+    root.setAttribute('data-spatial-root', '');
+    root.setAttribute('data-spatial-active', 'true');
+    const left = document.createElement('button');
+    const right = document.createElement('button');
+    left.textContent = 'Left action';
+    right.textContent = 'Right action';
+    const rectFor = (x: number): DOMRect => ({
+      x,
+      y: 0,
+      left: x,
+      top: 0,
+      width: 40,
+      height: 40,
+      right: x + 40,
+      bottom: 40,
+      toJSON: () => ({}),
+    }) as DOMRect;
+    left.getBoundingClientRect = () => rectFor(0);
+    right.getBoundingClientRect = () => rectFor(100);
+    root.append(left, right);
+    document.body.append(root);
+    left.focus();
+
+    press(['right'], 16);
+
+    expect(document.activeElement).toBe(right);
+    root.remove();
+  });
+
   it('reports controller readiness and stores debug state while polling', () => {
     const onStatus = vi.fn();
     render(<Harness onStatus={onStatus} />);

@@ -71,6 +71,7 @@ The Windows calls match [Nyrna](https://github.com/Merrit/nyrna): `NtSuspendProc
 
 - Confirm the saved shortcut is a valid accelerator.
 - Global shortcuts can require an elevated restart when the game is elevated.
+- The bring-to-front shortcut (default `Ctrl+Shift+G`) is refused when it normalizes to the same keys as an enabled suspend shortcut. The Xbox Guide button never calls suspend. See [Big Screen and controllers](./big-screen-and-controllers.md).
 
 ## File Ownership Map
 

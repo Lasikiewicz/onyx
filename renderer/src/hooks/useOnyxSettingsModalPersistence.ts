@@ -21,6 +21,11 @@ export interface OnyxSettings {
   enableGamepadSupport: boolean;
   gamepadButtonLayout: 'xbox' | 'playstation';
   gamepadNavigationSpeed: number;
+  enableBringToFrontShortcut: boolean;
+  bringToFrontShortcut: string;
+  enableGuideButtonWake: boolean;
+  startInBigScreen: boolean;
+  bigScreenDisplay: 'current' | 'primary' | number;
   defaultStartupPage: 'library' | 'recent' | 'favorites';
   disableAllAnimations: boolean;
   disableAnimatedBanners: boolean;
@@ -76,6 +81,11 @@ const defaultSettings: OnyxSettings = {
   enableGamepadSupport: true,
   gamepadButtonLayout: 'playstation',
   gamepadNavigationSpeed: 180,
+  enableBringToFrontShortcut: true,
+  bringToFrontShortcut: 'Ctrl+Shift+G',
+  enableGuideButtonWake: true,
+  startInBigScreen: false,
+  bigScreenDisplay: 'current',
   defaultStartupPage: 'library',
   disableAllAnimations: false,
   disableAnimatedBanners: false,
@@ -147,6 +157,11 @@ export const useOnyxSettingsModalPersistence = ({
           enableGamepadSupport: prefs.enableGamepadSupport ?? true,
           gamepadButtonLayout: prefs.gamepadButtonLayout ?? 'playstation',
           gamepadNavigationSpeed: prefs.gamepadNavigationSpeed ?? 180,
+          enableBringToFrontShortcut: prefs.enableBringToFrontShortcut ?? true,
+          bringToFrontShortcut: prefs.bringToFrontShortcut ?? 'Ctrl+Shift+G',
+          enableGuideButtonWake: prefs.enableGuideButtonWake ?? true,
+          startInBigScreen: prefs.startInBigScreen ?? false,
+          bigScreenDisplay: prefs.bigScreenDisplay ?? 'current',
           defaultStartupPage: (prefs.defaultStartupPage as OnyxSettings['defaultStartupPage']) ?? 'library',
           disableAllAnimations: prefs.disableAllAnimations ?? false,
           disableAnimatedBanners: prefs.disableAnimatedBanners ?? false,
@@ -331,6 +346,11 @@ export const useOnyxSettingsModalPersistence = ({
         enableGamepadSupport: settings.enableGamepadSupport,
         gamepadButtonLayout: settings.gamepadButtonLayout,
         gamepadNavigationSpeed: settings.gamepadNavigationSpeed,
+        enableBringToFrontShortcut: settings.enableBringToFrontShortcut,
+        bringToFrontShortcut: settings.bringToFrontShortcut,
+        enableGuideButtonWake: settings.enableGuideButtonWake,
+        startInBigScreen: settings.startInBigScreen,
+        bigScreenDisplay: settings.bigScreenDisplay,
         defaultStartupPage: settings.defaultStartupPage,
         disableAllAnimations: settings.disableAllAnimations,
         disableAnimatedBanners: settings.disableAnimatedBanners,
@@ -356,6 +376,11 @@ export const useOnyxSettingsModalPersistence = ({
       const suspendEnabledResult = await window.electronAPI.suspend.setFeatureEnabled(settings.enableSuspendFeature);
       if (!suspendEnabledResult.success) {
         throw new Error(suspendEnabledResult.error || 'Failed to apply suspend feature setting');
+      }
+
+      const wakeResult = await window.electronAPI.bigScreen?.syncWake?.();
+      if (settings.enableBringToFrontShortcut && wakeResult && !wakeResult.shortcutRegistered && wakeResult.reason) {
+        alert(wakeResult.reason);
       }
 
       await window.electronAPI.saveAPICredentials({

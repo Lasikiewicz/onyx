@@ -349,6 +349,12 @@ input[type="color"].color-chip-input::-moz-color-swatch {
   /* Add any fullscreen-specific styles here */
 }
 
+/* Programmatic controller focus does not match :focus-visible, so the ring is explicit. */
+.controller-focus {
+  outline: 3px solid #38bdf8;
+  outline-offset: 4px;
+}
+
 .hide-cursor,
 .hide-cursor * {
   cursor: none !important;

@@ -21,7 +21,7 @@ Defines the primary library window layout after launch: menu bar, main content a
   - [Carousel View](./main-view/views/carousel-view.md)
   - [Coverflow View](./main-view/views/coverflow-view.md)
   - Card / Poster View in [AppShellLibraryView.tsx](../../renderer/src/components/appShell/AppShellLibraryView.tsx), backed by [LibraryCardView.tsx](../../renderer/src/components/LibraryCardView.tsx), [SortableCardTile.tsx](../../renderer/src/components/SortableCardTile.tsx), and [GameCardWide.tsx](../../renderer/src/components/GameCardWide.tsx).
-- **Controller navigation:** The controller navigation surface is currently marked coming soon. The mapper and preferences remain in place, but the app shell keeps gamepad polling disabled while input support is finalized.
+- **Controller navigation:** With Controller Navigation on, a gamepad moves the highlight in grid, list, and logo. Carousel and cover flow are unchanged. Big Screen is a separate layout, documented in [Big Screen and controllers](./big-screen-and-controllers.md).
 
 Layout: When view mode is grid/list/logo, the games list and game details panel are siblings; the top of the games list column and the top of the game details panel align. When "Show Categories" is off or categories are at bottom, the right panel gets top padding (pt-4) so its content aligns with the left panel's padded content. Categories are confined to the games list and do not affect the game details panel.
 
@@ -32,7 +32,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 - Top bar positions and visibility for search, sort, launcher, category menu, and pinned category buttons (see settings runbooks and [Menu Bar](./main-view/components/menu-bar.md)).
 - Games-list category row positions (see [Games List](./main-view/components/games-list.md)).
 - Flipped view (right panel on left) per view mode.
-- Gamepad preferences (`enableGamepadSupport`, `gamepadNavigationSpeed`, `gamepadButtonLayout`) are loaded from [UserPreferencesService](../../main/UserPreferencesService.ts), but controller navigation is currently disabled and marked coming soon.
+- Gamepad preferences (`enableGamepadSupport`, `gamepadNavigationSpeed`, `gamepadButtonLayout`) are loaded from [UserPreferencesService](../../main/UserPreferencesService.ts). Controller navigation is on by default after that load.
 
 ## Confirmed End-to-End Flows
 
@@ -41,7 +41,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 3. Carousel/coverflow/card-poster use full width; game details panel is hidden.
 4. Preferences (view mode, panel width, flipped layout) persist and restore on next launch.
 5. Top-bar layout changes from the right-click layout menu persist and restore on next launch, including hidden controls and pinned category placement.
-6. Controller navigation is currently gated off in [App.tsx](../../renderer/src/App.tsx); the existing hook and preferences remain ready for future re-enablement.
+6. Controller navigation in [App.tsx](../../renderer/src/App.tsx) moves the highlight through [useControllerNavigation.ts](../../renderer/src/hooks/useControllerNavigation.ts) when the preference is on. Grid, list, and logo participate. Carousel and cover flow do not.
 
 ## Discovery and Data Sources
 
@@ -53,7 +53,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
 - [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx) now opens Game Details and Carousel button-color controls through a compact popup picker with neutral shell styling, full button labels, and click-away dismissal so view-configuration controls stay easier to scan and do not force the main menu off-screen.
 - [RightClickMenu.tsx](../../renderer/src/components/RightClickMenu.tsx) also exposes a compact `Fill Available Space` toggle for grid view, and [App.tsx](../../renderer/src/App.tsx) responds by recalculating grid card width against the live left-panel space so the layout can shrink to fit visible rows or grow to reduce right-side gaps as the details panel grows or shrinks.
 - Root game-details-panel actions are assembled in [useGameDetailsPanelControls.ts](../../renderer/src/hooks/useGameDetailsPanelControls.ts) so right-panel actions and divider writes share one callback bundle before reaching [GameDetailsPanel.tsx](../../renderer/src/components/GameDetailsPanel.tsx).
-- Controller polling and focus routing are owned by [useControllerNavigation.ts](../../renderer/src/hooks/useControllerNavigation.ts), but [App.tsx](../../renderer/src/App.tsx) currently disables the bridge while the General settings controller controls are marked coming soon.
+- Controller polling and focus routing are owned by [useControllerNavigation.ts](../../renderer/src/hooks/useControllerNavigation.ts) and enabled from [App.tsx](../../renderer/src/App.tsx) when `enableGamepadSupport` is on.
 
 ## Data Model and Persistence
 
@@ -82,7 +82,7 @@ Layout: When view mode is grid/list/logo, the games list and game details panel 
   - [useMainViewShellControls.ts](../../renderer/src/hooks/useMainViewShellControls.ts) - MenuBar and TopBar shell action wiring for refresh, import, settings, tutorial, updater preview, and view/search updates
   - [useRightClickMenuControls.ts](../../renderer/src/hooks/useRightClickMenuControls.ts) - right-click settings menu action wiring for active-game updates and preference-backed main-view controls
   - [useGameDetailsPanelControls.ts](../../renderer/src/hooks/useGameDetailsPanelControls.ts) - game-details-panel action wiring for right-panel actions and divider persistence
-  - [useControllerNavigation.ts](../../renderer/src/hooks/useControllerNavigation.ts) - gamepad polling, repeat throttling, and controller focus routing for grid/list/logo library control, currently gated off while marked coming soon
+  - [useControllerNavigation.ts](../../renderer/src/hooks/useControllerNavigation.ts) - gamepad polling, repeat throttling, and controller focus routing for grid, list, and logo
   - [MenuBar.tsx](../../renderer/src/components/MenuBar.tsx)
   - [TopBarContextMenu.tsx](../../renderer/src/components/TopBarContextMenu.tsx)
   - [TopBar.tsx](../../renderer/src/components/TopBar.tsx)

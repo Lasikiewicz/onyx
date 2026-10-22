@@ -97,6 +97,10 @@ const config = {
     {
       from: 'resources/icon.svg',
       to: 'icon.svg'
+    },
+    {
+      from: 'resources/onyx-big-screen.png',
+      to: 'onyx-big-screen.png'
     }
   ],
   asar: true,

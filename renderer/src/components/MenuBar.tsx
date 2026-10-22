@@ -32,6 +32,7 @@ interface MenuBarProps {
   onRemoveDeletedGames?: () => void;
   onConfigureSteam?: () => void;
   onOnyxSettings?: () => void;
+  onEnterBigScreen?: () => void;
   onAPISettings?: () => void;
   onAbout?: () => void;
   onShowLibraryTutorial?: () => void;
@@ -155,6 +156,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onGameManager,
   onRemoveDeletedGames,
   onOnyxSettings,
+  onEnterBigScreen,
   // onAPISettings, // Unused
   onAbout,
   onShowLibraryTutorial,
@@ -1054,6 +1056,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             {/* Dropdown Menu */}
             <div
               data-controller-app-menu={isOnyxSettingsMenuOpen ? 'open' : 'closed'}
+              data-spatial-root=""
+              data-spatial-active={isOnyxSettingsMenuOpen ? 'true' : 'false'}
               className={`absolute left-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[240px] transition-all duration-300 origin-top-left ${isOnyxSettingsMenuOpen ? 'opacity-100 scale-100 visible pointer-events-auto' : 'opacity-0 scale-95 invisible pointer-events-none'}`}
             >
               <div className="p-1">
@@ -1099,6 +1103,21 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                     </svg>
                     <span className="flex-1">Game Manager</span>
+                  </button>
+                )}
+
+                {onEnterBigScreen && (
+                  <button
+                    onClick={() => {
+                      onEnterBigScreen();
+                      setIsOnyxSettingsMenuOpen(false);
+                    }}
+                    className="group w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-200 hover:bg-gray-700 rounded transition-colors whitespace-nowrap"
+                  >
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5h16v10H4zM8 19h8" />
+                    </svg>
+                    <span className="flex-1">Big Screen</span>
                   </button>
                 )}
 

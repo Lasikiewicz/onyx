@@ -19,6 +19,8 @@ import { useAppShellBackgroundMedia } from './hooks/useAppShellBackgroundMedia';
 import { useAppShellViewState } from './hooks/useAppShellViewState';
 import { useMainViewShellControls } from './hooks/useMainViewShellControls';
 import { useControllerNavigation } from './hooks/useControllerNavigation';
+import { useBigScreenMode } from './hooks/useBigScreenMode';
+import { BigScreenShell } from './components/bigScreen/BigScreenShell';
 import { useRightClickMenuControls } from './hooks/useRightClickMenuControls';
 import { useAppShellSurfaceActions } from './hooks/useAppShellSurfaceActions';
 import { useGameDetailsPanelControls } from './hooks/useGameDetailsPanelControls';
@@ -65,8 +67,6 @@ const lazyRenderFallback = (
     <div className="w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" />
   </div>
 );
-const CONTROLLER_NAVIGATION_AVAILABLE = false;
-
 function App() {
   // Main App Component
   const { games, loading, error, reorderGames, addCustomGame, loadLibrary, deleteGame, updateGameInState } = useGameLibrary();
@@ -306,7 +306,7 @@ function App() {
   const [linkDisplayOrder, setLinkDisplayOrder] = useState<string[]>(LINK_DISPLAY_ORDER);
   const [visibleLinkTypes, setVisibleLinkTypes] = useState<Record<string, boolean>>(DEFAULT_VISIBLE_LINK_TYPES);
   const [confirmGameLaunch, setConfirmGameLaunch] = useState(false);
-  const [enableGamepadSupport, setEnableGamepadSupport] = useState(true);
+  const [enableGamepadSupport, setEnableGamepadSupport] = useState(false);
   const [gamepadNavigationSpeed, setGamepadNavigationSpeed] = useState(180);
   const [gamepadButtonLayout, setGamepadButtonLayout] = useState<'xbox' | 'playstation'>('playstation');
   const [missingGames, setMissingGames] = useState<Array<{
@@ -814,6 +814,8 @@ function App() {
     setCrashDumpPaths,
   });
 
+  const bigScreen = useBigScreenMode();
+
   const {
     handlePlay,
     launchingGameId,
@@ -824,6 +826,7 @@ function App() {
   } = useGameLaunchFlow({
     confirmGameLaunch,
     notify: showToast,
+    returnToBigScreen: bigScreen.active,
   });
 
 
@@ -1228,10 +1231,47 @@ function App() {
     visibleLinkTypes,
   });
 
+  const cycleControllerCategory = useCallback((direction: -1 | 1) => {
+    const options: Array<string | null> = [null, ...allCategories];
+    const currentIndex = Math.max(0, options.indexOf(selectedCategory));
+    const next = options[(currentIndex + direction + options.length) % options.length];
+    setSelectedCategory(next);
+  }, [allCategories, selectedCategory, setSelectedCategory]);
+
+  const favoriteFocusedGame = useCallback(() => {
+    const game = displayGames.find((entry) => entry.id === activeGameId) ?? displayGames[0];
+    if (game) {
+      void handleToggleFavorite(game);
+    }
+  }, [activeGameId, displayGames, handleToggleFavorite]);
+
+  const playFocusedGame = useCallback((game: Game) => {
+    void handlePlay(game);
+  }, [handlePlay]);
+
+  const exitBigScreenSession = bigScreen.exit;
+  const toggleBigScreenMenuState = bigScreen.toggleMenu;
+
+  const exitBigScreen = useCallback(() => {
+    void exitBigScreenSession();
+  }, [exitBigScreenSession]);
+
+  const toggleBigScreenMenu = useCallback(() => {
+    toggleBigScreenMenuState();
+  }, [toggleBigScreenMenuState]);
+
+  const shoulderCategoryBack = useCallback(() => {
+    cycleControllerCategory(-1);
+  }, [cycleControllerCategory]);
+
+  const shoulderCategoryForward = useCallback(() => {
+    cycleControllerCategory(1);
+  }, [cycleControllerCategory]);
+
   useControllerNavigation({
     activeGameId,
     displayGames,
-    enabled: CONTROLLER_NAVIGATION_AVAILABLE && enableGamepadSupport,
+    enabled: enableGamepadSupport || bigScreen.active,
     gamepadButtonLayout,
     gamepadNavigationSpeed,
     isGameContextMenuOpen: gameContextMenu !== null,
@@ -1243,7 +1283,14 @@ function App() {
     onShellContextMenu: handleOpenShellContextMenu,
     onStatus: showToast,
     overlaysOpen,
-    viewMode,
+    viewMode: bigScreen.active ? 'grid' : viewMode,
+    activateOnPrimary: bigScreen.active,
+    onActivateGame: bigScreen.active ? playFocusedGame : undefined,
+    onBackFromGames: bigScreen.active ? exitBigScreen : undefined,
+    onOptions: bigScreen.active && !overlaysOpen ? toggleBigScreenMenu : undefined,
+    onSecondary: favoriteFocusedGame,
+    onShoulderLeft: shoulderCategoryBack,
+    onShoulderRight: shoulderCategoryForward,
   });
 
   const {
@@ -1341,8 +1388,30 @@ function App() {
 
       {/* Content wrapper with proper z-index */}
       <div className="relative z-10 flex flex-col h-full">
+        {bigScreen.active ? (
+          <BigScreenShell
+            activeGame={activeGame}
+            buttonLayout={gamepadButtonLayout}
+            error={error}
+            games={displayGames}
+            loading={loading}
+            menuOpen={bigScreen.menuOpen}
+            onCloseMenu={bigScreen.closeMenu}
+            onExit={exitBigScreen}
+            onOpenGameMenu={handleOpenGameContextMenu}
+            onOpenSettings={() => openOnyxSettings('general')}
+            onPlay={playFocusedGame}
+            onSearchChange={setSearchQuery}
+            onSelect={handleGameClick}
+            onToggleFavorite={(game) => { void handleToggleFavorite(game); }}
+            searchQuery={searchQuery}
+            selectedCategory={selectedCategory}
+          />
+        ) : (
+        <>
         {/* Menu Bar - Fixed at top */}
         <MenuBar
+          onEnterBigScreen={() => { void bigScreen.enter(); }}
           onScanFolder={menuBarProps.onScanFolder}
           onUpdateSteamLibrary={menuBarProps.onUpdateSteamLibrary}
           onUpdateLibrary={menuBarProps.onUpdateLibrary}
@@ -1480,6 +1549,8 @@ function App() {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {/* Add Game Modal */}
@@ -1529,7 +1600,10 @@ function App() {
 
       {/* Onyx Settings Modal */}
       <Suspense fallback={lazyRenderFallback}>
-        <OnyxSettingsModal {...onyxSettingsModalProps} />
+        <OnyxSettingsModal
+          {...onyxSettingsModalProps}
+          onEnterBigScreen={(display) => { void bigScreen.enter(display); }}
+        />
       </Suspense>
 
       {/* API Settings Modal */}

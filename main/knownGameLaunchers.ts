@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { basename, dirname, extname, join, normalize, parse } from 'node:path';
+import path from 'node:path';
 import type { Game } from './GameStore.js';
 
 type GameLaunchCandidate = Pick<Game, 'title' | 'exePath' | 'installationDirectory' | 'source' | 'platform'>;
@@ -18,6 +18,11 @@ interface ResolveKnownLauncherOptions {
 const normalizeText = (value: string | undefined): string =>
   (value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+/** Windows install paths keep backslashes. Walk those with win32 so POSIX dirname does not stall. */
+function pathApi(value: string): path.PlatformPath {
+  return value.includes('\\') ? path.win32 : path;
+}
+
 const stripSurroundingQuotes = (value: string): string => {
   const trimmed = value.trim();
   if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
@@ -28,7 +33,7 @@ const stripSurroundingQuotes = (value: string): string => {
 
 const isNevernessToEverness = (game: GameLaunchCandidate): boolean => {
   const title = normalizeText(game.title);
-  const exeName = normalizeText(basename(stripSurroundingQuotes(game.exePath || '')));
+  const exeName = normalizeText(pathApi(game.exePath || '').basename(stripSurroundingQuotes(game.exePath || '')));
   const installPath = normalizeText(game.installationDirectory);
   const exePath = normalizeText(game.exePath);
   const source = normalizeText(game.source);
@@ -57,17 +62,20 @@ const addDirectoryAndParents = (directories: string[], rawPath: string | undefin
 
   const stripped = stripSurroundingQuotes(rawPath);
   if (!stripped) return;
+  const api = pathApi(stripped);
 
-  let current = extname(stripped).toLowerCase() === '.exe'
-    ? dirname(normalize(stripped))
-    : normalize(stripped);
-  const root = parse(current).root;
+  let current = api.extname(stripped).toLowerCase() === '.exe'
+    ? api.dirname(api.normalize(stripped))
+    : api.normalize(stripped);
+  const root = api.parse(current).root;
 
   while (current && current !== root) {
     if (!directories.includes(current)) {
       directories.push(current);
     }
-    current = dirname(current);
+    const parent = api.dirname(current);
+    if (parent === current) break;
+    current = parent;
   }
 };
 
@@ -91,9 +99,9 @@ export function resolveKnownGameLauncherExecutable(
   }
 
   for (const directory of directories) {
-    const launcherPath = join(directory, rule.launcherExe);
+    const launcherPath = pathApi(directory).join(directory, rule.launcherExe);
     if (pathExists(launcherPath)) {
-      return normalize(launcherPath);
+      return pathApi(launcherPath).normalize(launcherPath);
     }
   }
 

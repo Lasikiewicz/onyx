@@ -29,6 +29,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 4. Renderer applies UI state changes (running status, minimize/restore behavior).
 5. `Restore Window on Game Exit` only restores the window for launches that returned a concrete tracked PID and that Onyx itself minimized during launch.
 6. When the user chooses `Uninstall`, [`App.tsx`](../../renderer/src/App.tsx) opens a confirmation dialog, [`LauncherService.ts`](../../main/LauncherService.ts) launches the detected uninstaller or Windows Settings fallback, and the shell can optionally remove the game from the library through the existing delete flow.
+7. A launch started while Big Screen is active minimizes Onyx. If that launch reported a process id, the exit path calls `bigScreen.returnFromGame` instead of the normal restore, so the TV layout comes back fullscreen. A launch with no process id does not auto-return. See [Big Screen and controllers](./big-screen-and-controllers.md).
 
 ## Discovery and Data Sources
 
@@ -75,7 +76,7 @@ Launches games from multiple sources and tracks running state for UX actions (mi
 
 - Confirm launch-behavior preferences were saved and reloaded ([UserPreferencesService.ts](../../main/UserPreferencesService.ts)).
 - Check whether the launched target is actually being tracked as the active game process.
-- Automatic restore is intentionally limited to launches with a real PID; URI/protocol launches without a tracked PID should not be expected to restore reliably.
+- Automatic restore is intentionally limited to launches with a real PID; URI/protocol launches without a tracked PID should not be expected to restore reliably. The same limit applies to returning to Big Screen.
 
 ## File Ownership Map
 

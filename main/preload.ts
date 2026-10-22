@@ -298,6 +298,33 @@ export const electronAPI = {
       };
     },
   },
+  bigScreen: {
+    getLaunchFlags: () => ipcRenderer.invoke('big-screen:getLaunchFlags'),
+    enter: (options?: { display?: 'current' | 'primary' | number }) => ipcRenderer.invoke('big-screen:enter', options),
+    exit: () => ipcRenderer.invoke('big-screen:exit'),
+    returnFromGame: () => ipcRenderer.invoke('big-screen:returnFromGame'),
+    listDisplays: () => ipcRenderer.invoke('big-screen:listDisplays'),
+    syncWake: () => ipcRenderer.invoke('big-screen:syncWake'),
+    onRequested: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('big-screen:requested', handler);
+      return () => {
+        ipcRenderer.removeListener('big-screen:requested', handler);
+      };
+    },
+    onEscape: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('big-screen:escape', handler);
+      return () => {
+        ipcRenderer.removeListener('big-screen:escape', handler);
+      };
+    },
+  },
+  sunshine: {
+    detect: () => ipcRenderer.invoke('sunshine:detect'),
+    add: (paths: string[]) => ipcRenderer.invoke('sunshine:add', paths),
+    remove: (paths: string[]) => ipcRenderer.invoke('sunshine:remove', paths),
+  },
   // Bug report methods
   generateBugReport: (userDescription: string) => ipcRenderer.invoke('bugReport:generate', userDescription),
   getBugReportLogsDirectory: () => ipcRenderer.invoke('bugReport:getLogsDirectory'),

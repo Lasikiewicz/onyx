@@ -898,6 +898,8 @@ export const RightClickMenu: React.FC<RightClickMenuProps> = ({
   return (
     <div
       ref={menuRef}
+      data-spatial-root=""
+      data-spatial-active="true"
       className="fixed flex flex-col border border-gray-600/80 rounded-lg shadow-xl z-50 py-1"
       style={{
         left: `${x}px`,

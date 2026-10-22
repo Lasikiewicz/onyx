@@ -25,7 +25,7 @@ Fixed top bar in the library window providing the Onyx menu, search, sort, launc
 
 1. User types in search: `searchQuery` updates in [App.tsx](../../../../renderer/src/App.tsx); games list filters by title (or other criteria).
 2. User changes Sort by / Launcher / Categories: selection state updates; games list and active game selection reflect filters.
-3. User opens menu: File, View, Settings, etc.; modals or actions open as appropriate.
+3. User opens menu: File, View, Settings, and Big Screen. Big Screen leaves the desktop chrome for the TV layout without changing the saved view mode. See [Big Screen and controllers](../../big-screen-and-controllers.md).
 4. User right-clicks any top-bar area; the Top Bar Layout menu opens at the cursor and writes position/visibility changes through the shell preference path while staying open for repeated adjustments.
 
 ## Discovery and Data Sources

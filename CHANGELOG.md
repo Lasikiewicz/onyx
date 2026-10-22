@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Big Screen and controllers:
+  - A connected gamepad moves the library highlight on the desktop layout. A opens the action row, B goes back, X opens the game menu, Y favorites the highlighted game, View focuses search, Menu opens the app menu, and the shoulder buttons change category.
+  - Big Screen is a separate fullscreen TV layout with large tiles, a focus ring, controller hints, and an on-screen keyboard for search. Enter it from the Onyx menu or Settings, or start the app with `--big-screen`. Leaving it returns to the desktop layout and leaves the saved view mode alone.
+  - After a tracked game exits, Big Screen comes back to the front. A global shortcut (default Ctrl+Shift+G) raises Onyx when another window is focused. On Windows the Xbox Guide button does the same and does not suspend a game. The shortcut is refused when it matches an enabled Suspend/Resume shortcut.
+  - Settings can add or remove an "Onyx Big Screen" entry in a detected Sunshine or Apollo apps.json after you confirm. A development build shows the command and does not write the file.
+
 ## [0.17.1] - 2026-10-22
 
 - Suspend and resume (still off until you enable it in Settings):
