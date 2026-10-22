@@ -234,7 +234,7 @@ It explains module boundaries, data flow, and release pipeline expectations.
 ## Module Index
 
 <!-- AUTO-GENERATED:MODULE_INDEX:START -->
-- Main process source files: 114
+- Main process source files: 115
 - Renderer source files: 181
 - Automation scripts: 30
 - GitHub workflow files: 7
